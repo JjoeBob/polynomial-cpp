@@ -50,7 +50,13 @@ std::ostream& operator<<(std::ostream& os, const Polynomial& poly)
             label = "0";
         }
 
-        os << std::left << std::setw(6) << label << " : " << poly.getCoefficient(degree) << "\n";
+        double coeff = poly.getCoefficient(degree);
+        if (coeff == 0.0)
+        {
+            coeff = 0.0;
+        }
+
+        os << std::left << std::setw(6) << label << " : " << coeff << "\n";
     }
 
     return os;

@@ -15,7 +15,8 @@ namespace
         Coefficient,
         Variable,
         PowerOperator,
-        PowerValue
+        PowerValue,
+        ZeroConst
     };
 
     struct FsmContext
@@ -28,7 +29,16 @@ namespace
 
     ValidationError handleStart(char c, FsmContext& context)
     {
-        if (std::isdigit(c))
+        if (c == '0')
+        {
+            context.state = State::ZeroConst;
+            return ValidationError::None;
+        }
+        else if (c >= '0' && c <= '9')
+        {
+            context.state = State::Coefficient;
+        }
+        else if (std::isdigit(c))
         {
             context.state = State::Coefficient;
         }
@@ -180,6 +190,19 @@ namespace
         return ValidationError::None;
     }
 
+    ValidationError handleZeroConst(char c, FsmContext& context)
+    {
+        if (c == '+' || c == '-')
+        {
+            return ValidationError::PowerNotDecreasing;
+        }
+        if (c == '^')
+        {
+            return ValidationError::MisplacedOperator;
+        }
+        return ValidationError::InvalidCharacter;
+    }
+
     ValidationError processCharacter(char c, FsmContext& context)
     {
         switch (context.state)
@@ -189,6 +212,7 @@ namespace
         case State::Variable: return handleVariable(c, context);
         case State::PowerOperator: return handlePowerOperator(c, context);
         case State::PowerValue: return handlePowerValue(c, context);
+        case State::ZeroConst: return handleZeroConst(c, context);
         }
         return ValidationError::InvalidCharacter;
     }
@@ -228,5 +252,6 @@ bool ValidatePolynomialInputUseCase::isExpressionFinished(const std::string& inp
     }
     return context.state == State::Coefficient ||
         context.state == State::Variable ||
+        context.state == State::ZeroConst ||
         (context.state == State::PowerValue && context.currentPower >= 2);
 }
