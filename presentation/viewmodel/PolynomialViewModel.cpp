@@ -32,7 +32,7 @@ void PolynomialViewModel::onEnterPressed()
     if (m_validator.isExpressionFinished(m_currentInput))
     {
         m_polynomial.setValue(m_parser.parse(m_currentInput));
-        m_rasterizer.rasterize(*m_polynomial.getValue()); // TODO: что-то делать с двумерным массивом-графиком
+        m_buffer.setValue(m_rasterizer.rasterize(*m_polynomial.getValue()));
     }
 }
 
@@ -44,4 +44,9 @@ Observable<char>& PolynomialViewModel::observeLastValidChar()
 Observable<std::optional<Polynomial>>& PolynomialViewModel::observePolynomial()
 {
     return m_polynomial;
+}
+
+Observable<std::optional<std::vector<std::vector<char>>>>& PolynomialViewModel::observeBuffer()
+{
+    return m_buffer;
 }

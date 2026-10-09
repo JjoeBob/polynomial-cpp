@@ -22,6 +22,7 @@ public:
     void onEnterPressed();
     Observable<char>& observeLastValidChar();
     Observable<std::optional<Polynomial>>& observePolynomial();
+    Observable<std::optional<std::vector<std::vector<char>>>>& observeBuffer();
 
 private:
     IPolynomialParserUseCase& m_parser;
@@ -30,6 +31,7 @@ private:
     std::string m_currentInput;
     Observable<char> m_lastValidChar;
     Observable<std::optional<Polynomial>> m_polynomial;
+    Observable<std::optional<std::vector<std::vector<char>>>> m_buffer;
 };
 
 #endif //POLYNOMIAL_POLYNOMIALVIEWMODEL_H

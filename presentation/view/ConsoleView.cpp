@@ -44,6 +44,14 @@ void ConsoleView::run() const
         }
     });
 
+    m_viewModel.observeBuffer().observe([this](std::optional<std::vector<std::vector<char>>> buffer)
+    {
+        if (buffer.has_value())
+        {
+            renderBuffer(*buffer);
+        }
+    });
+
     readPolynomial();
 }
 
@@ -56,6 +64,18 @@ void ConsoleView::renderChar(char c) const
 void ConsoleView::renderPolynomial(Polynomial polynomial) const
 {
     std::cout << std::endl << polynomial << std::endl;
+}
+
+void ConsoleView::renderBuffer(std::vector<std::vector<char>> buffer) const
+{
+    for (auto y : buffer)
+    {
+        for (auto x : y)
+        {
+            std::cout << x << " ";
+        }
+        std::cout << std::endl;
+    }
 }
 
 void ConsoleView::readPolynomial() const

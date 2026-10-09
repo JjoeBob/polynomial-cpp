@@ -15,6 +15,7 @@ public:
 private:
     void renderChar(char c) const;
     void renderPolynomial(Polynomial polynomial) const;
+    void renderBuffer(std::vector<std::vector<char>> buffer) const;
     void readPolynomial() const;
     PolynomialViewModel& m_viewModel;
 };
