@@ -43,7 +43,7 @@ std::vector<std::vector<char>> RasterizePolynomialUseCase::rasterize(
         }
     }
 
-    for (int x = -25; x <= 25; x++)
+    for (double x = -25; x <= 25; x += 0.05)
     {
         result = polynomial.evaluate(x);
         if (result + 25 > 0 && result + 25 < 50)

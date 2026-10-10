@@ -27,18 +27,33 @@ namespace
         bool signAllowed = true;
     };
 
-    ValidationError handleStart(char c, FsmContext& context)
+
+    /** @brief Обрабатывает состояние Start автомата
+     *
+     * В начале мы можем ввести:
+     *
+     * - '0' - тогда автомат перейдет в состояние
+     * State::ZeroConst (и больше ничего нельзя будет ввести)
+     *
+     * - '+' или '-' - переключаем флаг singAllowed в false (запрет на ввод 2
+     * знаков подряд). Состояние не меняем (остается State::Start)
+     *
+     * - 1 <= digit <= 9 - переход автомата в состояние State::Coefficient
+     *
+     * - Любой другой символ - возвращается ValidationError::InvalidCharacter
+     *
+     * @param c Проверяемый символ
+     * @param context Контекст автомата с текущим состоянием и степенями
+     * @return ValidationError Код ошибки или ValidationError::None, если символ допустим
+     */
+    ValidationError handleStart(const char c, FsmContext& context)
     {
         if (c == '0')
         {
             context.state = State::ZeroConst;
             return ValidationError::None;
         }
-        else if (c >= '0' && c <= '9')
-        {
-            context.state = State::Coefficient;
-        }
-        else if (std::isdigit(c))
+        if (c >= '1' && c <= '9')
         {
             context.state = State::Coefficient;
         }
@@ -72,7 +87,31 @@ namespace
         return ValidationError::None;
     }
 
-    ValidationError handleCoefficient(char c, FsmContext& context)
+    /**
+     *  @brief Обрабатывает состояние Coefficient автомата
+     *
+     * Если введен(а):
+     *
+     * - Цифра - ошибки нет, состояние не меняется
+     *
+     * - 'x' - рассматривается прошлая степень. Если она <= 1, то
+     * метод возвращает ValidationError::PowerNotDecreasing, тк степень не убывает
+     * (запись "5x + 3x" недопустима, тк по заданию: "Пользователь вводит полином по УМЕНЬШЕНИЮ степеней").
+     * Если же прошлая степень > 1, то символ допустим, состояние автомата меняется на State::Variable
+     *
+     * - '+' или '-' - то текущий член - свободный. Возвращается ValidationError::PowerNotDecreasing, тк
+     * после свободного члена не может быть других членов
+     *
+     * - '^' - возвращается ошибка ValidationError::MisplacedOperator, тк можно возводить в степень
+     * только x. Запись вида "123^2" недопустима
+     *
+     * - Любой другой символ - возвращается ошибка ValidationError::InvalidCharacter
+     *
+     * @param c Проверяемый символ
+     * @param context Контекст автомата с текущим состоянием и степенями
+     * @return ValidationError код ошибки или ValidationError::None, если символ допустим
+     */
+    ValidationError handleCoefficient(const char c, FsmContext& context)
     {
         if (std::isdigit(c))
         {
@@ -87,22 +126,37 @@ namespace
             context.state = State::Variable;
             return ValidationError::None;
         }
-        else if (c == '+' || c == '-')
+        if (c == '+' || c == '-')
         {
             return ValidationError::PowerNotDecreasing;
         }
-        else if (c == '^')
+        if (c == '^')
         {
             return ValidationError::MisplacedOperator;
         }
-        else
-        {
-            return ValidationError::InvalidCharacter;
-        }
-        return ValidationError::None;
+        return ValidationError::InvalidCharacter;
     }
 
-    ValidationError handleVariable(char c, FsmContext& context)
+    /**
+     * @brief Обрабатывает состояние Variable автомата
+     *
+     * Если введен(а):
+     *
+     * - '^' - проверяется прошлая степень. Если она <= 2, то возвращается ошибка
+     * ValidationError::PowerNotDecreasing. Пример: была введена строка "3x^2+2x". Тут есть 2 случая:
+     *  1. Мы попытаемся ввести "3x^2+2x^1" или "3x^2+2x^0" - степень здесь лишняя, поэтому ее в целом
+     * можем не допускать для ввода
+     *  2. Мы попытаемся ввести "3x^2+2x^2" или "3x^2+2x^3" - очевидная ошибка, тк степень не убывает
+     *
+     * - '+' или '-' - мы не написал знак '^', значит степень = 1. Возвращается ValidationError::None
+     *
+     * - Любой другой символ - возвращается ошибка ValidationError::InvalidCharacter
+     *
+     * @param c Проверяемый символ
+     * @param context Контекст автомата с текущим состоянием и степенями
+     * @return ValidationError код ошибки или ValidationError::None, если символ допустим
+     */
+    ValidationError handleVariable(const char c, FsmContext& context)
     {
         if (c == '^')
         {
@@ -111,28 +165,38 @@ namespace
                 return ValidationError::PowerNotDecreasing;
             }
             context.state = State::PowerOperator;
+            return ValidationError::None;
         }
         else if (c == '+' || c == '-')
         {
-            if (1 < context.lastPower)
-            {
-                context.lastPower = 1;
-                context.signAllowed = false;
-                context.state = State::Start;
-            }
-            else
-            {
-                return ValidationError::PowerNotDecreasing;
-            }
+            context.lastPower = 1;
+            context.signAllowed = false;
+            context.state = State::Start;
+            return ValidationError::None;
         }
-        else
-        {
-            return ValidationError::InvalidCharacter;
-        }
-        return ValidationError::None;
+        return ValidationError::InvalidCharacter;
     }
 
-    ValidationError handlePowerOperator(char c, FsmContext& context)
+    /**
+     * @brief Обрабатывает состояние PowerOperator автомата
+     *
+     * Если введен(а):
+     *
+     * - '0' - нет смысла в записи "x^0", поэтому сразу возвращается
+     * ValidationError::InvalidCharacter
+     *
+     * - Цифра кроме '0' - если введенная цифра УЖЕ больше, чем прошлая степень, то
+     * возвращается ошибка ValidationError::PowerNotDecreasing. Иначе обновляем текущую степень,
+     * переводим автомат в состояние State::PowerValue (возвращаем ValidationError::None)
+     *
+     * - '^' или '+' или '-' - возращается ошибка
+     * ValidationError:MisplacedOperator (пример: "2x^+")
+     *
+     * @param c Проверяемый символ
+     * @param context Контекст автомата с текущим состоянием и степенями
+     * @return ValidationError код ошибки или ValidationError::None, если символ допустим
+     */
+    ValidationError handlePowerOperator(const char c, FsmContext& context)
     {
         if (std::isdigit(c))
         {
@@ -157,7 +221,28 @@ namespace
         return ValidationError::InvalidCharacter;
     }
 
-    ValidationError handlePowerValue(char c, FsmContext& context)
+    /**
+     * @brief Обрабатывает состояние PowerValue автомата
+     *
+     * Если введен(а):
+     *
+     * - Цифра - вычисляем обновленную степень путем умножения текущей на 10
+     * и прибавления текущей цифры. Если обновленная степень больше, чем последняя,
+     * то возвращаем ошибку ValidationError::PowerNotDecreasing. Обновляем текущую степень
+     * и остаемся в состоянии State::PowerValue
+     *
+     * - '+' или '-' - есть только проверка context.currentPower < 2 (возвращается
+     * ValidationError::PowerNotDecreasing), чтобы запретить ввод выражения вида "x^1+"
+     *
+     * - '^' - возвращается ошибка ValidationError::MisplacedOperator
+     *
+     * - Любой другой символ - ValidationError::InvalidCharacter
+     *
+     * @param c Проверяемый символ
+     * @param context Контекст автомата с текущим состоянием и степенями
+     * @return ValidationError код ошибки или ValidationError::None, если символ допустим
+     */
+    ValidationError handlePowerValue(const char c, FsmContext& context)
     {
         if (std::isdigit(c))
         {
@@ -170,7 +255,7 @@ namespace
         }
         else if (c == '+' || c == '-')
         {
-            if (context.currentPower < 2 || context.currentPower >= context.lastPower)
+            if (context.currentPower < 2)
             {
                 return ValidationError::PowerNotDecreasing;
             }
@@ -190,7 +275,18 @@ namespace
         return ValidationError::None;
     }
 
-    ValidationError handleZeroConst(char c, FsmContext& context)
+
+    /** @brief Обрабатывает состояние автомата State::ZeroConst
+     *
+     * @param c Проверяемый символ
+     * @param context Контекст автомата с текущим состоянием и степенями
+     * @return ValidationError Код ошибки
+     *
+     * @note Никогда не вернет ValidationError::None, следовательно, ввод после '0'
+     * в принципе невозможен. Обработка делается только чтобы узнать конкретную
+     * причину ошибки
+     */
+    ValidationError handleZeroConst(const char c, FsmContext& context)
     {
         if (c == '+' || c == '-')
         {
@@ -203,7 +299,14 @@ namespace
         return ValidationError::InvalidCharacter;
     }
 
-    ValidationError processCharacter(char c, FsmContext& context)
+
+    /** @brief Получает символ и переводит автомат в следующее состояние
+     *
+     * @param c Проверяемый символ
+     * @param context Контекст автомата с текущим состоянием и степенями
+     * @return ValidationError Код ошибки или ValidationError::None, если символ допустим
+     */
+    ValidationError processCharacter(const char c, FsmContext& context)
     {
         switch (context.state)
         {
@@ -221,18 +324,18 @@ namespace
 
 ValidationResult ValidatePolynomialInputUseCase::validatePolynomialInput(const std::string& input, char character)
 {
-    std::string newInput = input + character;
+    const std::string newInput = input + character;
     FsmContext context;
 
-    for (char c : newInput)
+    for (const char c : newInput)
     {
         ValidationError error = processCharacter(c, context);
         if (error != ValidationError::None)
         {
-            return {false, error};
+            return {.isValid = false, .error = error};
         }
     }
-    return {true, ValidationError::None};
+    return {.isValid = true, .error = ValidationError::None};
 }
 
 bool ValidatePolynomialInputUseCase::isExpressionFinished(const std::string& input)
